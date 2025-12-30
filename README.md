@@ -92,6 +92,7 @@ chmod +x deploy.sh
 | `CLOUDFLARE_ACCOUNT_ID` | Yes | Your Cloudflare account ID (found in dashboard URL) |
 | `GITHUB_REPO` | No | GitHub repo URL for git pull during CI/CD |
 | `RAPIDAPI_KEY` | No | RapidAPI provider key for auto-sync |
+| `ANTHROPIC_API_KEY` | No | Anthropic API key for Claude Code CLI (AI-assisted development) |
 
 ## Getting Cloudflare Credentials
 
@@ -246,6 +247,44 @@ wrangler d1 execute bnr-fx-db --command="SELECT * FROM fx_rates LIMIT 5"
 
 - Cron changes take up to 15 minutes to propagate
 - Check Cloudflare dashboard: Workers → Your Worker → Triggers
+
+## AI-Assisted Development with Claude Code
+
+The deploy script automatically installs Claude Code CLI for AI-assisted development.
+
+### Setup
+
+1. Get an Anthropic API key from [Anthropic Console](https://console.anthropic.com/settings/keys)
+2. Set the environment variable:
+   ```bash
+   export ANTHROPIC_API_KEY="your-anthropic-api-key"
+   ```
+
+### Usage
+
+```bash
+# Navigate to project directory
+cd bnr-fx-pipeline
+
+# Start Claude Code
+claude
+
+# Ask Claude to modify the code, for example:
+# "Add a new endpoint /rates/convert?from=EUR&to=USD&amount=100"
+# "Add caching to reduce database queries"
+# "Fix the bug in the XML parser"
+
+# After Claude makes changes, redeploy:
+./deploy.sh
+```
+
+### Example Prompts
+
+- "Add a new endpoint to convert between currencies"
+- "Add rate limiting to the API"
+- "Improve error handling in the scheduled fetch"
+- "Add more currencies to track"
+- "Change the cron schedule to run twice daily"
 
 ## License
 

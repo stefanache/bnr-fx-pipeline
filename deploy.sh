@@ -23,6 +23,7 @@
 #   GITHUB_REPO             - GitHub repository URL (for git pull)
 #   RAPIDAPI_KEY            - RapidAPI key (from https://rapidapi.com/developer/apps)
 #   RAPIDAPI_API_ID         - RapidAPI API ID (for updates, saved in .rapidapi_id)
+#   ANTHROPIC_API_KEY       - Anthropic API key for Claude Code CLI (for AI-assisted dev)
 #
 # Usage:
 #   chmod +x deploy.sh
@@ -134,6 +135,17 @@ install_system_deps() {
         log_info "Installing Python test dependencies..."
         pip3 install --quiet --break-system-packages pytest pytest-asyncio httpx 2>/dev/null || \
         pip3 install --quiet pytest pytest-asyncio httpx 2>/dev/null || true
+    fi
+
+    # Install Claude Code CLI for AI-assisted development (optional)
+    if ! check_command claude; then
+        log_info "Installing Claude Code CLI..."
+        npm install -g @anthropic-ai/claude-code 2>/dev/null || {
+            log_warn "Claude Code CLI installation failed (optional - for AI-assisted dev)"
+        }
+    fi
+    if check_command claude; then
+        log_success "Claude Code CLI installed"
     fi
 }
 
@@ -424,7 +436,32 @@ print_summary() {
     echo ""
     echo "Cron Schedule: Daily at 8:00 AM UTC"
     echo ""
+    echo "-------------------------------------------------------------------------------"
+    echo "Claude Code CLI (AI-Assisted Development):"
+    echo "-------------------------------------------------------------------------------"
+    if check_command claude; then
+        echo "  Status: INSTALLED"
+        echo ""
+        echo "  To use Claude for future code updates:"
+        echo "    1. Set your Anthropic API key:"
+        echo "       export ANTHROPIC_API_KEY='your-anthropic-api-key'"
+        echo "    2. Run Claude Code in this directory:"
+        echo "       cd $(pwd)"
+        echo "       claude"
+        echo "    3. Ask Claude to modify the code, e.g.:"
+        echo "       'Add a new endpoint /rates/convert?from=EUR&to=USD&amount=100'"
+        echo "    4. After changes, redeploy:"
+        echo "       ./deploy.sh"
+        echo ""
+        echo "  Get Anthropic API key: https://console.anthropic.com/settings/keys"
+    else
+        echo "  Status: NOT INSTALLED"
+        echo "  To install: npm install -g @anthropic-ai/claude-code"
+    fi
+    echo ""
+    echo "-------------------------------------------------------------------------------"
     echo "Next Steps:"
+    echo "-------------------------------------------------------------------------------"
     echo "  1. Test the API: curl https://${PROJECT_NAME}.${CLOUDFLARE_ACCOUNT_ID}.workers.dev/health"
     echo "  2. Import openapi.yaml into RapidAPI Hub"
     echo "  3. Configure RapidAPI pricing and documentation"
