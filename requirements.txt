@@ -1,0 +1,14 @@
+# Python dependencies for local development and testing
+# Note: Cloudflare Workers Python has built-in modules
+
+# For local testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+httpx>=0.24.0
+
+# For XML parsing in local tests
+lxml>=4.9.0
+
+# For development
+black>=23.0.0
+flake8>=6.0.0

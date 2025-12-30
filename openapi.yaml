@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: BNR FX Rates API
+  description: |
+    Access Romanian National Bank (BNR) foreign exchange rates in JSON format.
+
+    This API fetches daily rates from the official BNR XML feed and provides
+    a clean JSON interface for querying historical and current exchange rates.
+
+    **Base Currency:** RON (Romanian Leu)
+
+    **Data Source:** https://www.bnr.ro/nbrfxrates.xml
+
+    **Update Schedule:** Daily at 8:00 AM UTC (11:00 AM Romania time)
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://bnr-fx-rates.YOUR_SUBDOMAIN.workers.dev
+    description: Production server (Cloudflare Workers)
+
+paths:
+  /rates:
+    get:
+      summary: Get exchange rates
+      description: |
+        Retrieve FX rates with flexible querying options:
+        - No parameters: Returns latest available rates
+        - With date: Returns all rates for a specific date
+        - With currency: Returns historical rates for a specific currency
+        - With currency + from: Returns rates from a specific start date
+      operationId: getRates
+      tags:
+        - Rates
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Get rates for a specific date (YYYY-MM-DD format)
+          schema:
+            type: string
+            format: date
+            example: "2025-01-15"
+        - name: currency
+          in: query
+          required: false
+          description: Filter by currency code (e.g., EUR, USD, GBP)
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}$"
+            example: "EUR"
+        - name: from
+          in: query
+          required: false
+          description: Start date for historical data (requires currency parameter)
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+      responses:
+        '200':
+          description: Successful response with rates data
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/RatesResponse'
+                  - $ref: '#/components/schemas/CurrencyHistoryResponse'
+              examples:
+                latestRates:
+                  summary: Latest rates (no parameters)
+                  value:
+                    date: "2025-01-15"
+                    base: "RON"
+                    rates:
+                      - currency: "EUR"
+                        value: 4.9770
+                        multiplier: 1
+                        date: "2025-01-15"
+                      - currency: "USD"
+                        value: 4.5623
+                        multiplier: 1
+                        date: "2025-01-15"
+                ratesByDate:
+                  summary: Rates for specific date
+                  value:
+                    date: "2025-01-10"
+                    base: "RON"
+                    rates:
+                      - currency: "EUR"
+                        value: 4.9755
+                        multiplier: 1
+                        date: "2025-01-10"
+                currencyHistory:
+                  summary: Currency historical rates
+                  value:
+                    currency: "EUR"
+                    base: "RON"
+                    history:
+                      - currency: "EUR"
+                        value: 4.9770
+                        multiplier: 1
+                        date: "2025-01-15"
+                      - currency: "EUR"
+                        value: 4.9755
+                        multiplier: 1
+                        date: "2025-01-14"
+        '404':
+          description: No rates found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "No rates found for this date"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Internal server error"
+
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running and healthy
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                service: "BNR FX Rates API"
+                version: "1.0.0"
+
+components:
+  schemas:
+    Rate:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: "EUR"
+        value:
+          type: number
+          format: float
+          description: Exchange rate value against RON
+          example: 4.9770
+        multiplier:
+          type: integer
+          description: Multiplier for the rate (usually 1, but 100 for currencies like HUF)
+          example: 1
+        date:
+          type: string
+          format: date
+          description: Date of the rate
+          example: "2025-01-15"
+      required:
+        - currency
+        - value
+        - multiplier
+        - date
+
+    RatesResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date of the rates
+          example: "2025-01-15"
+        base:
+          type: string
+          description: Base currency (always RON)
+          example: "RON"
+        rates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rate'
+      required:
+        - date
+        - base
+        - rates
+
+    CurrencyHistoryResponse:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Currency code
+          example: "EUR"
+        base:
+          type: string
+          description: Base currency (always RON)
+          example: "RON"
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rate'
+      required:
+        - currency
+        - base
+        - history
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        service:
+          type: string
+          example: "BNR FX Rates API"
+        version:
+          type: string
+          example: "1.0.0"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "No rates found for this date"
+      required:
+        - error
+
+  securitySchemes:
+    RapidAPIKey:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Key
+      description: RapidAPI subscription key
+
+security:
+  - RapidAPIKey: []
+
+tags:
+  - name: Rates
+    description: Exchange rate operations
+  - name: System
+    description: System health and status
