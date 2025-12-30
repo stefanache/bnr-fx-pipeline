@@ -18,8 +18,11 @@
 # Required Environment Variables:
 #   CLOUDFLARE_API_TOKEN    - Cloudflare API token with Workers permissions
 #   CLOUDFLARE_ACCOUNT_ID   - Your Cloudflare account ID
-#   GITHUB_REPO             - GitHub repository URL
-#   RAPIDAPI_KEY            - (Optional) RapidAPI provider key
+#
+# Optional Environment Variables:
+#   GITHUB_REPO             - GitHub repository URL (for git pull)
+#   RAPIDAPI_KEY            - RapidAPI key (from https://rapidapi.com/developer/apps)
+#   RAPIDAPI_API_ID         - RapidAPI API ID (for updates, saved in .rapidapi_id)
 #
 # Usage:
 #   chmod +x deploy.sh
@@ -333,27 +336,71 @@ trigger_initial_fetch() {
 }
 
 #-------------------------------------------------------------------------------
-# Update RapidAPI (Optional)
+# Deploy to RapidAPI
 #-------------------------------------------------------------------------------
 
-update_rapidapi() {
+deploy_rapidapi() {
+    log_info "Setting up RapidAPI..."
+
+    # Check for RapidAPI credentials
     if [ -z "$RAPIDAPI_KEY" ]; then
-        log_warn "RAPIDAPI_KEY not set, skipping RapidAPI update"
-        log_info "To enable RapidAPI sync, set: export RAPIDAPI_KEY='your-rapidapi-provider-key'"
+        log_warn "RAPIDAPI_KEY not set, skipping RapidAPI deployment"
+        log_info "To enable RapidAPI, set: export RAPIDAPI_KEY='your-rapidapi-key'"
+        log_info "Get your key from: https://rapidapi.com/developer/apps"
         return
     fi
 
-    log_info "Updating RapidAPI configuration..."
-
-    # RapidAPI Hub API for updating API definition
-    # This requires the RapidAPI Provider Hub API
-    # Documentation: https://docs.rapidapi.com/docs/provider-api
-
     WORKER_URL="https://${PROJECT_NAME}.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
 
-    log_info "RapidAPI base URL should be: $WORKER_URL"
-    log_info "Import openapi.yaml into RapidAPI Hub manually or use their API"
-    log_success "RapidAPI ready for configuration"
+    # Update openapi.yaml with actual worker URL
+    log_info "Updating OpenAPI spec with worker URL..."
+    sed -i "s|https://bnr-fx-rates.YOUR_SUBDOMAIN.workers.dev|${WORKER_URL}|g" openapi.yaml
+
+    # Check if API already exists (using RAPIDAPI_API_ID if set)
+    if [ -n "$RAPIDAPI_API_ID" ]; then
+        log_info "Updating existing RapidAPI listing (ID: $RAPIDAPI_API_ID)..."
+
+        # Update existing API with new OpenAPI spec
+        RESPONSE=$(curl -s -X PUT \
+            "https://openapi-provisioning.p.rapidapi.com/v1/apis/${RAPIDAPI_API_ID}" \
+            -H "x-rapidapi-host: openapi-provisioning.p.rapidapi.com" \
+            -H "x-rapidapi-key: ${RAPIDAPI_KEY}" \
+            -H "Content-Type: multipart/form-data" \
+            -F "file=@openapi.yaml" 2>/dev/null)
+
+        if echo "$RESPONSE" | grep -q "error"; then
+            log_warn "RapidAPI update returned: $RESPONSE"
+        else
+            log_success "RapidAPI API updated successfully"
+        fi
+    else
+        log_info "Creating new API on RapidAPI..."
+
+        # Create new API from OpenAPI spec
+        RESPONSE=$(curl -s -X POST \
+            "https://openapi-provisioning.p.rapidapi.com/v1/apis" \
+            -H "x-rapidapi-host: openapi-provisioning.p.rapidapi.com" \
+            -H "x-rapidapi-key: ${RAPIDAPI_KEY}" \
+            -H "Content-Type: multipart/form-data" \
+            -F "name=BNR FX Rates" \
+            -F "description=Romanian National Bank exchange rates API" \
+            -F "file=@openapi.yaml" 2>/dev/null)
+
+        # Extract API ID from response
+        API_ID=$(echo "$RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [ -n "$API_ID" ]; then
+            log_success "RapidAPI API created! ID: $API_ID"
+            log_info "Save this for future updates: export RAPIDAPI_API_ID='$API_ID'"
+            echo "$API_ID" > .rapidapi_id
+        else
+            log_warn "RapidAPI response: $RESPONSE"
+            log_info "You may need to create the API manually at https://rapidapi.com/provider"
+        fi
+    fi
+
+    log_info "RapidAPI base URL: $WORKER_URL"
+    log_success "RapidAPI configuration complete"
 }
 
 #-------------------------------------------------------------------------------
@@ -406,7 +453,7 @@ main() {
     setup_database
     deploy_cloudflare
     trigger_initial_fetch
-    update_rapidapi
+    deploy_rapidapi
     print_summary
 }
 
