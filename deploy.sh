@@ -69,6 +69,72 @@ check_command() {
 }
 
 #-------------------------------------------------------------------------------
+# Install System Dependencies (Ubuntu 24.04)
+#-------------------------------------------------------------------------------
+
+install_system_deps() {
+    log_info "Checking and installing system dependencies..."
+
+    # Check if running as root or has sudo
+    if [ "$EUID" -ne 0 ]; then
+        SUDO="sudo"
+    else
+        SUDO=""
+    fi
+
+    # Update package list
+    log_info "Updating package list..."
+    $SUDO apt-get update -qq
+
+    # Install curl if missing
+    if ! check_command curl; then
+        log_info "Installing curl..."
+        $SUDO apt-get install -y curl
+    fi
+    log_success "curl installed"
+
+    # Install git if missing
+    if ! check_command git; then
+        log_info "Installing git..."
+        $SUDO apt-get install -y git
+    fi
+    log_success "git installed"
+
+    # Install Node.js 20.x if missing or version < 18
+    NEED_NODE=false
+    if ! check_command node; then
+        NEED_NODE=true
+    else
+        NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_VERSION" -lt 18 ]; then
+            NEED_NODE=true
+        fi
+    fi
+
+    if [ "$NEED_NODE" = true ]; then
+        log_info "Installing Node.js 20.x..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO -E bash -
+        $SUDO apt-get install -y nodejs
+    fi
+    log_success "Node.js $(node -v) installed"
+    log_success "npm $(npm -v) installed"
+
+    # Install Python3 and pip if missing (for tests)
+    if ! check_command python3; then
+        log_info "Installing Python3..."
+        $SUDO apt-get install -y python3 python3-pip
+    fi
+    log_success "Python3 installed"
+
+    # Install pip packages for testing
+    if check_command pip3; then
+        log_info "Installing Python test dependencies..."
+        pip3 install --quiet --break-system-packages pytest pytest-asyncio httpx 2>/dev/null || \
+        pip3 install --quiet pytest pytest-asyncio httpx 2>/dev/null || true
+    fi
+}
+
+#-------------------------------------------------------------------------------
 # Pre-flight Checks
 #-------------------------------------------------------------------------------
 
@@ -77,9 +143,7 @@ preflight_checks() {
 
     # Check Node.js
     if ! check_command node; then
-        log_error "Node.js is not installed. Please install Node.js 18+:"
-        echo "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -"
-        echo "  sudo apt-get install -y nodejs"
+        log_error "Node.js is not installed (should have been installed by install_system_deps)"
         exit 1
     fi
 
@@ -99,7 +163,7 @@ preflight_checks() {
 
     # Check git
     if ! check_command git; then
-        log_error "Git is not installed. Install with: sudo apt install git"
+        log_error "Git is not installed"
         exit 1
     fi
     log_success "Git detected"
@@ -334,6 +398,7 @@ main() {
 
     cd "$SCRIPT_DIR"
 
+    install_system_deps
     preflight_checks
     install_dependencies
     pull_latest
