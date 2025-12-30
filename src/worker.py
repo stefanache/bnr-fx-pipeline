@@ -54,12 +54,13 @@ async def upsert_rates(env, date_str: str, rates: list):
 
     for rate in rates:
         await db.prepare("""
-            INSERT INTO fx_rates (date, currency, value, multiplier)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(date, currency) DO UPDATE SET
+            INSERT INTO fx_rates (rate_date, currency, value, multiplier, fetched_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
+            ON CONFLICT(rate_date, currency) DO UPDATE SET
                 value = excluded.value,
                 multiplier = excluded.multiplier,
-                updated_at = CURRENT_TIMESTAMP
+                fetched_at = datetime('now'),
+                updated_at = datetime('now')
         """).bind(date_str, rate["currency"], rate["value"], rate["multiplier"]).run()
 
 
@@ -67,9 +68,9 @@ async def get_rates_by_date(env, date_str: str) -> list:
     """Get all rates for a specific date."""
     db = env.DB
     result = await db.prepare("""
-        SELECT currency, value, multiplier, date
+        SELECT currency, value, multiplier, rate_date, fetched_at, created_at, updated_at
         FROM fx_rates
-        WHERE date = ?
+        WHERE rate_date = ?
         ORDER BY currency
     """).bind(date_str).all()
     return result.results if result.results else []
@@ -81,17 +82,17 @@ async def get_rates_by_currency(env, currency: str, from_date: str = None) -> li
 
     if from_date:
         result = await db.prepare("""
-            SELECT currency, value, multiplier, date
+            SELECT currency, value, multiplier, rate_date, fetched_at, created_at, updated_at
             FROM fx_rates
-            WHERE currency = ? AND date >= ?
-            ORDER BY date DESC
+            WHERE currency = ? AND rate_date >= ?
+            ORDER BY rate_date DESC
         """).bind(currency.upper(), from_date).all()
     else:
         result = await db.prepare("""
-            SELECT currency, value, multiplier, date
+            SELECT currency, value, multiplier, rate_date, fetched_at, created_at, updated_at
             FROM fx_rates
             WHERE currency = ?
-            ORDER BY date DESC
+            ORDER BY rate_date DESC
             LIMIT 30
         """).bind(currency.upper()).all()
 
@@ -102,9 +103,9 @@ async def get_latest_rates(env) -> list:
     """Get the most recent rates available."""
     db = env.DB
     result = await db.prepare("""
-        SELECT currency, value, multiplier, date
+        SELECT currency, value, multiplier, rate_date, fetched_at, created_at, updated_at
         FROM fx_rates
-        WHERE date = (SELECT MAX(date) FROM fx_rates)
+        WHERE rate_date = (SELECT MAX(rate_date) FROM fx_rates)
         ORDER BY currency
     """).all()
     return result.results if result.results else []
@@ -183,7 +184,7 @@ async def on_fetch(request: Request, env, ctx) -> Response:
                 if not rates:
                     return json_response({"error": "No rates available"}, 404)
                 return json_response({
-                    "date": rates[0]["date"] if rates else None,
+                    "date": rates[0]["rate_date"] if rates else None,
                     "base": "RON",
                     "rates": rates
                 })

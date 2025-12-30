@@ -80,11 +80,17 @@ paths:
                       - currency: "EUR"
                         value: 4.9770
                         multiplier: 1
-                        date: "2025-01-15"
+                        rate_date: "2025-01-15"
+                        fetched_at: "2025-01-15 08:00:15"
+                        created_at: "2025-01-15 08:00:15"
+                        updated_at: "2025-01-15 08:00:15"
                       - currency: "USD"
                         value: 4.5623
                         multiplier: 1
-                        date: "2025-01-15"
+                        rate_date: "2025-01-15"
+                        fetched_at: "2025-01-15 08:00:15"
+                        created_at: "2025-01-15 08:00:15"
+                        updated_at: "2025-01-15 08:00:15"
                 ratesByDate:
                   summary: Rates for specific date
                   value:
@@ -94,7 +100,10 @@ paths:
                       - currency: "EUR"
                         value: 4.9755
                         multiplier: 1
-                        date: "2025-01-10"
+                        rate_date: "2025-01-10"
+                        fetched_at: "2025-01-10 08:00:12"
+                        created_at: "2025-01-10 08:00:12"
+                        updated_at: "2025-01-10 08:00:12"
                 currencyHistory:
                   summary: Currency historical rates
                   value:
@@ -104,11 +113,17 @@ paths:
                       - currency: "EUR"
                         value: 4.9770
                         multiplier: 1
-                        date: "2025-01-15"
+                        rate_date: "2025-01-15"
+                        fetched_at: "2025-01-15 08:00:15"
+                        created_at: "2025-01-15 08:00:15"
+                        updated_at: "2025-01-15 08:00:15"
                       - currency: "EUR"
                         value: 4.9755
                         multiplier: 1
-                        date: "2025-01-14"
+                        rate_date: "2025-01-14"
+                        fetched_at: "2025-01-14 08:00:10"
+                        created_at: "2025-01-14 08:00:10"
+                        updated_at: "2025-01-14 08:00:10"
         '404':
           description: No rates found
           content:
@@ -163,16 +178,32 @@ components:
           type: integer
           description: Multiplier for the rate (usually 1, but 100 for currencies like HUF)
           example: 1
-        date:
+        rate_date:
           type: string
           format: date
-          description: Date of the rate
+          description: Date of the rate from BNR
           example: "2025-01-15"
+        fetched_at:
+          type: string
+          format: date-time
+          description: Timestamp when data was fetched from BNR (UTC)
+          example: "2025-01-15 08:00:15"
+        created_at:
+          type: string
+          format: date-time
+          description: Record creation timestamp (UTC)
+          example: "2025-01-15 08:00:15"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp (UTC)
+          example: "2025-01-15 08:00:15"
       required:
         - currency
         - value
         - multiplier
-        - date
+        - rate_date
+        - fetched_at
 
     RatesResponse:
       type: object
