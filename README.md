@@ -74,7 +74,7 @@ cd bnr-fx-pipeline
 ```bash
 export CLOUDFLARE_API_TOKEN="your-cloudflare-api-token"
 export CLOUDFLARE_ACCOUNT_ID="your-cloudflare-account-id"
-export GITHUB_REPO="https://github.com/YOUR_USERNAME/bnr-fx-pipeline.git"
+export GITHUB_REPO="https://github.com/stefanache/bnr-fx-pipeline.git"
 ```
 
 ### 3. Deploy
